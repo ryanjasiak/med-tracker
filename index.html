@@ -1,0 +1,400 @@
+<title>Meds Check</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Meds">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+  /* Layout: one quiet screen of big tap rows; history slides over it as a sheet. */
+  :root {
+    --bg: #F2F4F6;
+    --surface: #FFFFFF;
+    --ink: #18202B;
+    --muted: #6A7482;
+    --line: #DDE2E8;
+    --done: #2E8B62;
+    --done-soft: #DDF0E6;
+    --part: #C98A1B;
+    --part-soft: #F6EAD2;
+    --miss: #C0503C;
+    --miss-soft: #F5DED9;
+    --font: "Atkinson Hyperlegible", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0F141A; --surface: #18202A; --ink: #E8EDF2; --muted: #8D98A6; --line: #27313D;
+      --done: #4FBF8A; --done-soft: #173527; --part: #E0A740; --part-soft: #3A2E16;
+      --miss: #E07563; --miss-soft: #3B201B; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F141A; --surface: #18202A; --ink: #E8EDF2; --muted: #8D98A6; --line: #27313D;
+    --done: #4FBF8A; --done-soft: #173527; --part: #E0A740; --part-soft: #3A2E16;
+    --miss: #E07563; --miss-soft: #3B201B; color-scheme: dark;
+  }
+
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 17px;
+    -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none;
+  }
+  button { font: inherit; color: inherit; }
+  button:focus-visible { outline: 3px solid var(--done); outline-offset: 2px; }
+
+  .app {
+    min-height: 100%; box-sizing: border-box; max-width: 480px; margin: 0 auto;
+    display: flex; flex-direction: column; gap: 28px;
+    padding-block: 20px 32px;
+    padding-left: max(20px, env(safe-area-inset-left, 0px));
+    padding-right: max(20px, env(safe-area-inset-right, 0px));
+  }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .date { display: flex; flex-direction: column; gap: 2px; }
+  .date .dow { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; }
+  .date .md { color: var(--muted); font-size: 15px; }
+  .iconbtn {
+    width: 46px; height: 46px; border-radius: 14px; border: 1px solid var(--line);
+    background: var(--surface); display: grid; place-items: center; cursor: pointer; flex: none;
+  }
+  .iconbtn svg { width: 22px; height: 22px; stroke: var(--ink); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .list { display: flex; flex-direction: column; gap: 14px; }
+  .row {
+    display: flex; align-items: center; gap: 16px; width: 100%; text-align: left;
+    padding: 20px; border-radius: 18px; border: 1.5px solid var(--line); background: var(--surface);
+    cursor: pointer; transition: background .15s, border-color .15s;
+  }
+  .row .box {
+    width: 34px; height: 34px; border-radius: 10px; border: 2px solid var(--muted);
+    display: grid; place-items: center; flex: none; transition: background .15s, border-color .15s;
+  }
+  .row .box svg { width: 20px; height: 20px; stroke: var(--surface); stroke-width: 3.2; fill: none; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+  .row .text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .row .label { font-size: 19px; font-weight: 700; }
+  .row .when { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .row[aria-checked="true"] { background: var(--done-soft); border-color: var(--done); }
+  .row[aria-checked="true"] .box { background: var(--done); border-color: var(--done); }
+  .row[aria-checked="true"] .box svg { opacity: 1; }
+  .row.sunday .label::after { content: "Sundays"; margin-left: 8px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); vertical-align: 2px; }
+
+  .foot { margin-top: auto; text-align: center; color: var(--muted); font-size: 13px; }
+
+  /* History sheet */
+  .sheet {
+    position: fixed; inset: 0; z-index: 20; background: var(--bg); overflow-y: auto;
+    padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .sheet .app { gap: 22px; }
+  .monthbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .monthbar h2 { margin: 0; font-size: 22px; text-wrap: balance; }
+  .navs { display: flex; gap: 8px; }
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .grid .wd { text-align: center; font-size: 12px; font-weight: 700; letter-spacing: .06em; color: var(--muted); padding-bottom: 4px; }
+  .cell {
+    aspect-ratio: 1; max-width: 100%; border-radius: 12px; border: 1.5px solid transparent;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    font-variant-numeric: tabular-nums; font-size: 15px; background: transparent; cursor: pointer; padding: 0;
+  }
+  .cell.blank { cursor: default; }
+  .cell .dots { display: flex; gap: 3px; height: 5px; }
+  .cell .dots i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .25; }
+  .cell .dots i.on { opacity: 1; }
+  .cell.done { background: var(--done-soft); color: var(--done); font-weight: 700; }
+  .cell.part { background: var(--part-soft); color: var(--part); font-weight: 700; }
+  .cell.miss { background: var(--miss-soft); color: var(--miss); font-weight: 700; }
+  .cell.future, .cell.before { color: var(--muted); opacity: .55; cursor: default; }
+  .cell.today { border-color: var(--ink); }
+  .cell.sel { outline: 2.5px solid var(--ink); outline-offset: 1px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend b { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+
+  .detail { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+  .detail h3 { margin: 0; font-size: 17px; }
+  .detail .line { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; }
+  .detail .line .t { font-variant-numeric: tabular-nums; color: var(--muted); }
+  .detail .line .t.ok { color: var(--done); font-weight: 700; }
+  .detail .line .t.no { color: var(--miss); font-weight: 700; }
+
+  .section { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line); padding-top: 18px; }
+  .section h4 { margin: 0; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .section p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.5; }
+  .btnrow { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px 14px; font-size: 15px; cursor: pointer; }
+  textarea { width: 100%; box-sizing: border-box; min-height: 90px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 10px; font: 13px/1.4 ui-monospace, Menlo, monospace; -webkit-user-select: text; user-select: text; }
+  .status { font-size: 14px; }
+  .status.ok { color: var(--done); }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<main class="app" id="today">
+  <header>
+    <div class="date"><span class="dow" id="dow">Today</span><span class="md" id="md"></span></div>
+    <button class="iconbtn" id="openHistory" aria-label="Show history">
+      <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+    </button>
+  </header>
+  <section class="list" id="list"></section>
+  <p class="foot">Resets at 4:00 AM</p>
+</main>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="app">
+    <header>
+      <div class="date"><span class="dow">History</span><span class="md">Tap a day for details</span></div>
+      <button class="iconbtn" id="closeHistory" aria-label="Close history">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </header>
+
+    <div class="monthbar">
+      <h2 id="monthTitle"></h2>
+      <div class="navs">
+        <button class="iconbtn" id="prevM" aria-label="Previous month"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <button class="iconbtn" id="nextM" aria-label="Next month"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+      </div>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="legend">
+      <span><b style="background:var(--done)"></b>All taken</span>
+      <span><b style="background:var(--part)"></b>Some taken</span>
+      <span><b style="background:var(--miss)"></b>None taken</span>
+    </div>
+    <div class="detail" id="detail" hidden></div>
+
+    <div class="section">
+      <h4>Storage</h4>
+      <p class="status" id="storageStatus">Checking…</p>
+    </div>
+    <div class="section">
+      <h4>Backup</h4>
+      <p>Copy your history as text and paste it somewhere safe, like Notes. Paste it back here to restore.</p>
+      <div class="btnrow">
+        <button class="btn" id="copyBackup">Copy backup</button>
+        <button class="btn" id="showRestore">Restore…</button>
+      </div>
+      <p class="status" id="backupMsg" hidden></p>
+      <div id="restoreBox" hidden style="display:flex;flex-direction:column;gap:8px">
+        <textarea id="restoreText" placeholder="Paste backup text here"></textarea>
+        <div class="btnrow"><button class="btn" id="doRestore">Restore from backup</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const KEY = "medscheck.v1";
+  const ITEMS = [
+    { id: "am",  label: "Took meds a.m." },
+    { id: "pm",  label: "Took meds p.m." },
+    { id: "sun", label: "Took Sunday meds", sundayOnly: true }
+  ];
+  const RESET_HOUR = 4;
+
+  // ---------- storage ----------
+  let mem = { since: null, days: {} };
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) { const d = JSON.parse(raw); if (d && d.days) mem = d; }
+    } catch (e) {}
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(mem)); } catch (e) {}
+  }
+
+  // ---------- dates ----------
+  const pad = n => String(n).padStart(2, "0");
+  const ymd = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  function logicalDate(now) {
+    const d = new Date(now || Date.now());
+    if (d.getHours() < RESET_HOUR) d.setDate(d.getDate() - 1);
+    d.setHours(12, 0, 0, 0);
+    return d;
+  }
+  const parseKey = k => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d, 12); };
+  const itemsFor = date => ITEMS.filter(i => !i.sundayOnly || date.getDay() === 0);
+  const fmtTime = ts => new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  // ---------- today view ----------
+  const list = document.getElementById("list");
+  let currentKey = null;
+
+  function renderToday() {
+    const date = logicalDate();
+    currentKey = ymd(date);
+    if (!mem.since) { mem.since = currentKey; save(); }
+    document.getElementById("dow").textContent = date.toLocaleDateString([], { weekday: "long" });
+    document.getElementById("md").textContent = date.toLocaleDateString([], { month: "long", day: "numeric" });
+    const rec = mem.days[currentKey] || {};
+    list.innerHTML = "";
+    itemsFor(date).forEach(item => {
+      const b = document.createElement("button");
+      b.className = "row" + (item.sundayOnly ? " sunday" : "");
+      b.id = "row-" + item.id;
+      b.setAttribute("role", "checkbox");
+      b.setAttribute("aria-checked", rec[item.id] ? "true" : "false");
+      b.innerHTML =
+        '<span class="box"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>' +
+        '<span class="text"><span class="label"></span><span class="when"></span></span>';
+      b.querySelector(".label").textContent = item.label;
+      b.querySelector(".when").textContent = rec[item.id] ? "Taken at " + fmtTime(rec[item.id]) : "Not yet";
+      b.addEventListener("click", () => toggle(item.id));
+      list.appendChild(b);
+    });
+  }
+
+  function toggle(id) {
+    // If the 4 AM rollover happened while the screen was open, refresh first.
+    if (ymd(logicalDate()) !== currentKey) { renderToday(); return; }
+    const rec = mem.days[currentKey] || (mem.days[currentKey] = {});
+    if (rec[id]) delete rec[id]; else rec[id] = Date.now();
+    if (!Object.keys(rec).length) delete mem.days[currentKey];
+    save();
+    renderToday();
+  }
+
+  // ---------- history ----------
+  const sheet = document.getElementById("sheet");
+  const grid = document.getElementById("grid");
+  const detail = document.getElementById("detail");
+  let viewY, viewM, selKey = null;
+
+  function statusFor(key) {
+    const todayKey = ymd(logicalDate());
+    if (key > todayKey) return "future";
+    if (mem.since && key < mem.since && !mem.days[key]) return "before";
+    const date = parseKey(key);
+    const rec = mem.days[key] || {};
+    const need = itemsFor(date);
+    const n = need.filter(i => rec[i.id]).length;
+    if (n === need.length) return "done";
+    if (key === todayKey) return n ? "part" : "pending";
+    return n ? "part" : "miss";
+  }
+
+  function renderMonth() {
+    const first = new Date(viewY, viewM, 1, 12);
+    document.getElementById("monthTitle").textContent = first.toLocaleDateString([], { month: "long", year: "numeric" });
+    grid.innerHTML = "";
+    ["S", "M", "T", "W", "T", "F", "S"].forEach(w => {
+      const e = document.createElement("div"); e.className = "wd"; e.textContent = w; grid.appendChild(e);
+    });
+    for (let i = 0; i < first.getDay(); i++) {
+      const e = document.createElement("div"); e.className = "cell blank"; grid.appendChild(e);
+    }
+    const days = new Date(viewY, viewM + 1, 0).getDate();
+    const todayKey = ymd(logicalDate());
+    for (let d = 1; d <= days; d++) {
+      const date = new Date(viewY, viewM, d, 12);
+      const key = ymd(date);
+      const st = statusFor(key);
+      const rec = mem.days[key] || {};
+      const c = document.createElement("button");
+      c.className = "cell " + st + (key === todayKey ? " today" : "") + (key === selKey ? " sel" : "");
+      c.id = "day-" + key;
+      const dots = itemsFor(date).map(i => '<i class="' + (rec[i.id] ? "on" : "") + '"></i>').join("");
+      c.innerHTML = "<span>" + d + "</span>" + (st === "future" || st === "before" ? "" : '<span class="dots">' + dots + "</span>");
+      if (st === "future" || st === "before") c.disabled = true;
+      else c.addEventListener("click", () => { selKey = key; renderMonth(); renderDetail(); });
+      grid.appendChild(c);
+    }
+    const cur = logicalDate();
+    document.getElementById("nextM").disabled = viewY > cur.getFullYear() || (viewY === cur.getFullYear() && viewM >= cur.getMonth());
+  }
+
+  function renderDetail() {
+    if (!selKey) { detail.hidden = true; return; }
+    const date = parseKey(selKey);
+    const rec = mem.days[selKey] || {};
+    detail.hidden = false;
+    detail.innerHTML = "";
+    const h = document.createElement("h3");
+    h.textContent = date.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+    detail.appendChild(h);
+    const isToday = selKey === ymd(logicalDate());
+    itemsFor(date).forEach(i => {
+      const line = document.createElement("div"); line.className = "line";
+      const l = document.createElement("span"); l.textContent = i.label;
+      const t = document.createElement("span");
+      if (rec[i.id]) { t.className = "t ok"; t.textContent = fmtTime(rec[i.id]); }
+      else { t.className = isToday ? "t" : "t no"; t.textContent = isToday ? "Not yet" : "Missed"; }
+      line.append(l, t); detail.appendChild(line);
+    });
+  }
+
+  function openHistory() {
+    const cur = logicalDate();
+    viewY = cur.getFullYear(); viewM = cur.getMonth(); selKey = ymd(cur);
+    renderMonth(); renderDetail(); refreshStorageStatus();
+    sheet.hidden = false;
+  }
+  document.getElementById("openHistory").addEventListener("click", openHistory);
+  document.getElementById("closeHistory").addEventListener("click", () => { sheet.hidden = true; });
+  document.getElementById("prevM").addEventListener("click", () => { viewM--; if (viewM < 0) { viewM = 11; viewY--; } renderMonth(); });
+  document.getElementById("nextM").addEventListener("click", () => { viewM++; if (viewM > 11) { viewM = 0; viewY++; } renderMonth(); });
+
+  // ---------- persistent storage ----------
+  async function requestPersist() {
+    try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) {}
+  }
+  async function refreshStorageStatus() {
+    const el = document.getElementById("storageStatus");
+    let ok = false, known = false;
+    try {
+      if (navigator.storage && navigator.storage.persisted) { ok = await navigator.storage.persisted(); known = true; }
+    } catch (e) {}
+    el.className = "status" + (ok ? " ok" : "");
+    el.textContent = ok ? "Protected. Your phone won't clear this history on its own."
+      : known ? "Saved on this phone. Protection turns on after you add the app to your Home Screen and open it from there."
+      : "Saved on this phone.";
+  }
+
+  // ---------- backup ----------
+  const msg = document.getElementById("backupMsg");
+  function say(t) { msg.textContent = t; msg.hidden = false; }
+  document.getElementById("copyBackup").addEventListener("click", () => {
+    const text = JSON.stringify(mem);
+    const done = () => say("Copied. Paste it into Notes to keep it safe.");
+    try {
+      navigator.clipboard.writeText(text).then(done, () => fallback(text));
+    } catch (e) { fallback(text); }
+  });
+  function fallback(text) {
+    const box = document.getElementById("restoreBox");
+    const ta = document.getElementById("restoreText");
+    box.hidden = false; ta.value = text; ta.focus(); ta.select();
+    say("Couldn't copy automatically. The text is selected below; copy it from there.");
+  }
+  document.getElementById("showRestore").addEventListener("click", () => {
+    const box = document.getElementById("restoreBox"); box.hidden = !box.hidden;
+  });
+  document.getElementById("doRestore").addEventListener("click", () => {
+    try {
+      const d = JSON.parse(document.getElementById("restoreText").value);
+      if (!d || typeof d.days !== "object") throw 0;
+      // Merge so restoring never drops entries that are already here.
+      Object.keys(d.days).forEach(k => { mem.days[k] = Object.assign({}, d.days[k], mem.days[k] || {}); });
+      if (d.since && (!mem.since || d.since < mem.since)) mem.since = d.since;
+      save(); renderToday(); renderMonth(); renderDetail();
+      say("Restored.");
+    } catch (e) { say("That text isn't a valid backup. Paste the full text you copied."); }
+  });
+
+  // ---------- rollover ----------
+  function checkRollover() { if (ymd(logicalDate()) !== currentKey) renderToday(); }
+  setInterval(checkRollover, 30000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { load(); renderToday(); } });
+  window.addEventListener("focus", checkRollover);
+
+  load();
+  renderToday();
+  requestPersist();
+})();
+</script>
